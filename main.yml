@@ -1,0 +1,51 @@
+- name: Set up the firewall
+  hosts: all
+  become: true
+  vars:
+    firewall_rules:
+      - { port: 22, proto: tcp, state: enabled }
+      - { port: 80, proto: tcp, state: enable  }
+      - { port: 443, proto: tcp, state: enabled }
+
+  tasks:
+    - name: dnf and release the download
+      yum:
+        name:
+          - epel-release
+          - dnf
+      when: ansible_distribution == "CentOS"
+
+    - name: Ubuntu servers to fix by dpkg
+      shell:
+        dpkg: --configure -a
+      when: ansible_distribution == "Ubuntu"
+
+    - name: Installation necessary packages
+      ansible.builtin.apt:
+        name: ufw
+        state: latest
+      when: ansible_distribution == "Ubuntu"
+
+    - name: Installation of the necessary packages
+      ansible.builtin.yum:
+        name: firewalld
+        state: latest
+      when: ansible_distribution == "CentOS"
+
+    - name: Enable the firewall
+      ansible.builtin.service:
+        name: {{ firewall_service }}"
+        state: started
+        enabled: true
+      vars:
+        firewall_service: "{{ 'ufw' if ansible_distribution == 'Ubuntu' else 'firewalld' }}"
+
+    - name: Configuring the firewall rules
+      ansible.builtin.command: ufw allow {{ item.port }}/{{ item.proto }}
+      when: ansible_distribution == 'Ubuntu' and item.state == 'enabled'
+      loop: "{{ firewall_rules }}"
+
+    - name: Configure the firewall rules
+      ansible.builtin.command: firewall-cmd --add-port={{ item.port }}/{{ item.proto }} --permanent
+      when: ansible_distribution == 'CentOS' and item.state == 'enabled'
+      loop: "{{ firewall_rules }}"
