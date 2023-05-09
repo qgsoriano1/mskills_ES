@@ -8,17 +8,6 @@
       - { port: 443, proto: tcp, state: enabled }
 
   tasks:
-    - name: dnf and release the download
-      yum:
-        name:
-          - epel-release
-          - dnf
-      when: ansible_distribution == "CentOS"
-
-    - name: Ubuntu servers to fix by dpkg
-      shell:
-        dpkg: --configure -a
-      when: ansible_distribution == "Ubuntu"
 
     - name: Installation necessary packages
       ansible.builtin.apt:
@@ -34,7 +23,7 @@
 
     - name: Enable the firewall
       ansible.builtin.service:
-        name: {{ firewall_service }}"
+        name: "{{ firewall_service }}"
         state: started
         enabled: true
       vars:
@@ -49,3 +38,34 @@
       ansible.builtin.command: firewall-cmd --add-port={{ item.port }}/{{ item.proto }} --permanent
       when: ansible_distribution == 'CentOS' and item.state == 'enabled'
       loop: "{{ firewall_rules }}"
+
+    - name: enable UFW, allowing all the traffic
+      community.general.ufw:
+        state: enabled
+        policy: allow
+
+    - name: set the logging
+      community.general.ufw:
+        logging: 'on'
+
+    - community.general.ufw:
+        rule: reject
+        port: auth
+        log: yes
+
+    - name: deny access to port 35
+      community.general.ufw:
+        rule: deny
+        port: '35'
+
+    - name: allow all of the access to port 53
+      community.general.ufw:
+        rule: allow
+        port: '53'
+        proto: tcp
+
+    - name: allow the port range 60000 - 61000
+      community.general.ufw:
+        rule: allow
+        port: 60000:61000
+        proto: tcp
